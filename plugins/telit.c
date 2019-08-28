@@ -66,6 +66,7 @@ enum modem_model {
 	HE910 = 1,
 	UE910,
 	LE910,
+	ME910C1,
 	UC864,
 	UE866,
 };
@@ -88,6 +89,7 @@ static struct {
 	{ UE910,	"EUR",	TRUE,	FALSE },
 	{ UE910,	"NAR",	TRUE,	FALSE },
 	{ LE910,	NULL,	FALSE,	FALSE },
+	{ ME910C1,	"NA",	FALSE,	FALSE },
 	{ UC864,	NULL,	TRUE,	FALSE },
 	{ UC864,	"G",	TRUE,	TRUE },
 	{ UC864,	"WD",	FALSE,	FALSE },
@@ -237,12 +239,23 @@ static void cfun_enable_cb(gboolean ok, GAtResult *result, gpointer user_data)
 
 	ofono_modem_set_powered(modem, TRUE);
 
-	/*
-	 * Tell the modem not to automatically initiate auto-attach
-	 * proceedures on its own.
-	 */
-	g_at_chat_send(data->chat, "AT#AUTOATT=0", none_prefix,
-				NULL, NULL, NULL);
+
+	if (data->model == ME910C1) {
+		/*
+		 * XXX: Telit ME910 can do auto attach when APN is specified via
+		 * (AT+CGDCONT=1,"APN") but the modem has a bug needing dettach/attach
+		 * to the network to make it work.
+		 */
+		g_at_chat_send(data->chat, "AT+CGATT=0", NULL, NULL, NULL, NULL);
+		g_at_chat_send(data->chat, "AT+CGATT=1", NULL, NULL, NULL, NULL);
+	} else {
+		/*
+		 * Tell the modem not to automatically initiate auto-attach
+		 * proceedures on its own.
+		 */
+		g_at_chat_send(data->chat, "AT#AUTOATT=0", none_prefix,
+					NULL, NULL, NULL);
+	}
 
 	/* Follow sim state */
 	g_at_chat_register(data->chat, "#QSS:", telit_qss_notify,
@@ -284,6 +297,8 @@ static gboolean find_model_variant(struct ofono_modem *modem,
 		data->model = UE910;
 	else if (g_str_equal(model, "LE910"))
 		data->model = LE910;
+	else if (g_str_equal(model, "ME910C1"))
+		data->model = ME910C1;
 	else if (g_str_equal(model, "UC864"))
 		data->model = UC864;
 	else if (g_str_equal(model, "UE866"))
@@ -446,7 +461,10 @@ static void telit_post_online(struct ofono_modem *modem)
 
 	DBG("%p", modem);
 
-	ofono_netreg_create(modem, OFONO_VENDOR_TELIT, "atmodem", data->chat);
+	if (data->model == ME910C1)
+		ofono_netreg_create(modem, OFONO_VENDOR_TELIT_ME910C1, "atmodem", data->chat);
+	else
+		ofono_netreg_create(modem, OFONO_VENDOR_TELIT, "atmodem", data->chat);
 
 	if (data->has_voice) {
 		struct ofono_message_waiting *mw;
