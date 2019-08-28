@@ -674,6 +674,44 @@ static gboolean setup_telit(struct modem_info *modem)
 	return TRUE;
 }
 
+static gboolean setup_telitme910(struct modem_info *modem)
+{
+	const char *diag = NULL, *aux = NULL, *mdm = NULL;
+	GSList *list;
+
+	DBG("%s", modem->syspath);
+
+	for (list = modem->devices; list; list = list->next) {
+		struct device_info *info = list->data;
+
+		DBG("%s %s %s %s", info->devnode, info->interface,
+						info->number, info->label);
+
+		if (g_strcmp0(info->interface, "255/255/255") == 0) {
+			if (g_strcmp0(info->number, "00") == 0)
+				diag = info->devnode;
+			else if (g_strcmp0(info->number, "01") == 0)
+				mdm = info->devnode;
+		} else if (g_strcmp0(info->interface, "255/254/255") == 0) {
+			if (g_strcmp0(info->number, "02") == 0)
+				aux = info->devnode;
+		}
+	}
+
+	if (aux == NULL || mdm == NULL)
+		return FALSE;
+
+	DBG("diag=%s mdm=%s aux=%s", diag, mdm, aux);
+
+	ofono_modem_set_string(modem->modem, "Diag", diag);
+	ofono_modem_set_string(modem->modem, "Modem", mdm);
+	ofono_modem_set_string(modem->modem, "Aux", aux);
+
+	ofono_modem_set_driver(modem->modem, "telit");
+
+	return TRUE;
+}
+
 static gboolean setup_telitqmi(struct modem_info *modem)
 {
 	const char *qmi = NULL, *net = NULL;
@@ -1365,6 +1403,7 @@ static struct {
 	{ "novatel",	setup_novatel	},
 	{ "nokia",	setup_nokia	},
 	{ "telit",	setup_telit,	"device/interface"	},
+	{ "telitme910",	setup_telitme910,	"device/interface"	},
 	{ "telitqmi",	setup_telitqmi	},
 	{ "simcom",	setup_simcom	},
 	{ "sim7x00",	setup_sim7x00	},
@@ -1745,6 +1784,7 @@ static struct {
 	{ "telit",	"usbserial",	"1bc7"		},
 	{ "telit",	"option",	"1bc7"		},
 	{ "telit",	"cdc_acm",	"1bc7", "0021"	},
+	{ "telitme910",	"option",	"1bc7",	"1101"	},
 	{ "telitqmi",	"qmi_wwan",	"1bc7", "1201"	},
 	{ "telitqmi",	"option",	"1bc7", "1201"	},
 	{ "nokia",	"option",	"0421", "060e"	},
