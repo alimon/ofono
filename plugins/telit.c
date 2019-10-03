@@ -239,16 +239,23 @@ static void cfun_enable_cb(gboolean ok, GAtResult *result, gpointer user_data)
 
 	ofono_modem_set_powered(modem, TRUE);
 
-	/*
-	 * Tell the modem not to automatically initiate auto-attach
-	 * proceedures on its own.
-	 */
-	if (data->model == ME910C1)
-		g_at_chat_send(data->chat, "AT+CGATT=0", NULL, NULL, NULL, NULL);
-	else
 
+	if (data->model == ME910C1) {
+		/*
+		 * XXX: Telit ME910 can do auto attach when APN is specified via
+		 * (AT+CGDCONT=1,"APN") but the modem has a bug needing dettach/attach
+		 * to the network to make it work.
+		 */
+		g_at_chat_send(data->chat, "AT+CGATT=0", NULL, NULL, NULL, NULL);
+		g_at_chat_send(data->chat, "AT+CGATT=1", NULL, NULL, NULL, NULL);
+	} else {
+		/*
+		 * Tell the modem not to automatically initiate auto-attach
+		 * proceedures on its own.
+		 */
 		g_at_chat_send(data->chat, "AT#AUTOATT=0", none_prefix,
 					NULL, NULL, NULL);
+	}
 
 	/* Follow sim state */
 	g_at_chat_register(data->chat, "#QSS:", telit_qss_notify,
